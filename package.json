@@ -22,7 +22,7 @@
     "build:types": "tsc",
     "build": "rimraf dist lib es && npm run build:types && npm run build:commonjs && npm run build:es && npm run build:umd && npm run build:umd:min",
     "clean": "rimraf lib dist es coverage",
-    "test": "cross-env TS_NODE_COMPILER_OPTIONS=\"{\\\"module\\\": \\\"commonjs\\\", \\\"jsx\\\": \\\"react\\\" }\" ts-mocha || node -e \";\""
+    "test": "cross-env TS_NODE_COMPILER_OPTIONS=\"{\\\"module\\\": \\\"commonjs\\\", \\\"jsx\\\": \\\"react\\\" }\" ts-mocha"
   },
   "keywords": [
     "represelect",
@@ -74,6 +74,7 @@
     "jsdom": "^21.1.1",
     "mocha": "^10.0.0",
     "react-test-renderer": "^18.2.0",
+    "redux": "^4.2.1",
     "rimraf": "^4.4.1",
     "rollup": "^2.79.1",
     "rollup-plugin-terser": "^7.0.2",

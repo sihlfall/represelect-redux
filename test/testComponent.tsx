@@ -1,5 +1,7 @@
 import React from "react";
+import { selectN, useAppSelector } from "./testCoreRedux";
 
 export function TestComponent() {
-  return <div>This is my test component.</div>;
+  const n = useAppSelector(selectN);
+  return <div>This is my test component. {""+n}</div>;
 }
