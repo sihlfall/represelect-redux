@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+/* eslint-disable  @typescript-eslint/no-explicit-any */
+
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import { useStore } from 'react-redux'
 import { Representative } from 'represelect'
 import { Disclosure, makeInactiveDisclosure } from 'represelect/es/representative'
@@ -12,19 +14,19 @@ function useStoreSubject<TState>() {
     useEffect(() => {
         const subscription = from(store).subscribe(state => store$.next(state));
         return () => subscription.unsubscribe();
-    }, [store]);
+    }, [store, store$]);
 
     return store$;
 }
 
-export function useRepreselector<TState, Selected extends unknown,T1>(
+export function useRepreselector<TState, Selected>(
     represelector: (state: TState) => Representative<Selected>
 ): Disclosure<Selected>;
-export function useRepreselector<TState, Selected extends unknown,T1>(
+export function useRepreselector<TState, Selected,T1>(
     represelector: (state: TState) => Representative<Selected>,
     transformation: OperatorFunction<Disclosure<Selected>,T1>
 ): T1;
-export function useRepreselector<TState, Selected extends unknown>(
+export function useRepreselector<TState, Selected>(
     represelector: (state: TState) => Representative<Selected>,
     transformation?: any
 ): any {
@@ -33,7 +35,7 @@ export function useRepreselector<TState, Selected extends unknown>(
     // FIXME: add initializer parameter
     const [ holder ] = useState<{ d: any }>(() => ({ d: makeInactiveDisclosure() }));
 
-    const subscr = useMemo(() => (listener: () => void) => {
+    const subscr = useCallback((listener: () => void) => {
         const x$ = store$.pipe(
             switchMap((state: TState) => {
                 const r = represelector(state);
@@ -47,9 +49,9 @@ export function useRepreselector<TState, Selected extends unknown>(
             listener();
         });
         return () => subscription.unsubscribe();
-    }, []);
+    }, [holder, represelector, store$, transformation]);
 
-    const getSnapshot = useMemo(() => () => holder.d, []);
+    const getSnapshot = useCallback(() => holder.d, [holder]);
 
     const disclosure = useSyncExternalStore(subscr, getSnapshot, getSnapshot);
 
