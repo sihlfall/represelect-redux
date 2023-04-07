@@ -13,7 +13,8 @@ module.exports = {
         modules: cjs ? 'cjs' : false
       }
     ],
-    '@babel/preset-typescript'
+    '@babel/preset-typescript',
+    '@babel/react'
   ],
   plugins: [cjs && ['@babel/transform-modules-commonjs']].filter(Boolean)
 }
