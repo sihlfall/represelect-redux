@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
-import { useStore } from 'react-redux'
-import { Representative } from 'represelect'
-import { Disclosure, makeInactiveDisclosure } from 'represelect/es/representative'
-import { BehaviorSubject, from, OperatorFunction, switchMap } from 'rxjs'
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import { useStore } from 'react-redux';
+import type { Representative } from 'represelect';
+import { Disclosure, makeInactiveDisclosure } from 'represelect/es/representative';
+import { BehaviorSubject, from, OperatorFunction, switchMap } from 'rxjs';
 
 /* eslint-disable  @typescript-eslint/no-explicit-any */
 
