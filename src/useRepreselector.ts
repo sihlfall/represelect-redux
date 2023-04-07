@@ -1,10 +1,10 @@
-/* eslint-disable  @typescript-eslint/no-explicit-any */
-
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import { useStore } from 'react-redux'
 import { Representative } from 'represelect'
 import { Disclosure, makeInactiveDisclosure } from 'represelect/es/representative'
 import { BehaviorSubject, from, OperatorFunction, switchMap } from 'rxjs'
+
+/* eslint-disable  @typescript-eslint/no-explicit-any */
 
 function useStoreSubject<TState>() {
     const store = useStore<TState>();
