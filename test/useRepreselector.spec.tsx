@@ -1,18 +1,26 @@
-import React from 'react';
-import { createStore } from 'redux';
-import { TestComponent } from './testComponent';
-import { renderWithProviders } from './reduxUtil';
-import { INCREMENT_ACTION, reducer } from './testCoreRedux';
-import { act } from '@testing-library/react';
+
+import { legacy_createStore as createStore } from 'redux';
+import { map } from 'rxjs';
+import { renderHookWithProvider } from './reduxUtil';
+import { INCREMENT_ACTION, RootState, reducer, selectN, useAppSelector } from './testCoreRedux';
+import { act } from '@testing-library/react-hooks';
 import assert from 'assert';
 
-describe("useRepreselector", function () {
+import { useStoreSubject } from '../src/useRepreselector';
+
+describe("useStoreSubject", function () {
   it("does something", function () {
     const store = createStore(reducer);
-    const { container } = renderWithProviders(<TestComponent />, store);
-    assert.deepStrictEqual(container?.textContent, "This is my test component. 101");
+    const observed = [] as number[];
+    const { result } = renderHookWithProvider(
+      () => useStoreSubject<RootState>(),
+      store
+    );
+    const subscription = result.current.pipe(
+      map(state => state.n)
+    ).subscribe({ next(n) { observed.push(n); }});
     act( () => { store.dispatch({ type: INCREMENT_ACTION }) });
-    console.log(store.getState());
-    assert.deepStrictEqual(container?.textContent, "This is my test component. 102");
+    assert.deepStrictEqual(observed, [101, 102]);
+    subscription.unsubscribe();
   });
 });
