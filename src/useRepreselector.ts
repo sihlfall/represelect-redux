@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useStore } from 'react-redux';
-import type { Representative } from 'represelect';
-import { Disclosure, makeInactiveDisclosure } from './represelect_stuff';
-import { BehaviorSubject, from, OperatorFunction, switchMap, Observable } from 'rxjs';
+import { BUSY, ERROR, INACTIVE, Representative, SUCCESS } from 'represelect';
+import { Disclosure } from './represelect_stuff';
+import { BehaviorSubject, from, map, OperatorFunction, switchMap, Observable } from 'rxjs';
 
 /* eslint-disable  @typescript-eslint/no-explicit-any */
 
@@ -22,28 +22,23 @@ export function useStoreSubject<TState>() {
 export function useObservable<V>(
     observable$: Observable<V>
 ): V | null;
-export function useObservable<V,W>(
+export function useObservable<V,W = V>(
     observable$: Observable<V>,
-    initializer: () => W
+    makeInitial: () => W
 ): V | W;
-export function useObservable<V,R1,R2 = R1>(
-    observable$: Observable<V>,
-    initializer: () => R1,
-    operatorFunction : OperatorFunction<V,R2>
-): R1 | R2;
 export function useObservable<V>(
     observable$: Observable<V>,
-    initalizer: () => unknown = () => null,
-    operatorFunction?: OperatorFunction<V,unknown>
+    makeInitial: () => any = () => null
 ) {
-    const [ holder ] = useState<{ r: unknown }>(() => ({ r: initalizer() }));
+    const [ holder ] = useState<{ r: unknown }>(() => ({ r: makeInitial() }));
 
     const subscribe = useCallback((notify: () => void) => {
-        const subscription =
-            ( operatorFunction != null ? operatorFunction(observable$) : observable$ )
-                .subscribe((r: unknown) => { holder.r = r; notify(); });
+        const subscription = observable$.subscribe((r: unknown) => {
+            holder.r = r;
+            notify();
+        });
         return () => subscription.unsubscribe();
-    }, [holder, observable$, operatorFunction]);
+    }, [holder, observable$]);
 
     const getSnapshot = useCallback(() => holder.r, [holder]);
 
@@ -53,42 +48,63 @@ export function useObservable<V>(
 }
 
 
-
-export function useRepreselector<TState, Selected>(
-    represelector: (state: TState) => Representative<Selected>
-): Disclosure<Selected>;
-export function useRepreselector<TState, Selected,T1>(
-    represelector: (state: TState) => Representative<Selected>,
-    transformation: OperatorFunction<Disclosure<Selected>,T1>
-): T1;
-export function useRepreselector<TState, Selected>(
-    represelector: (state: TState) => Representative<Selected>,
-    transformation?: any
-): any {
+export function useRepreselector<TState, Value>(
+    represelector: (state: TState) => Representative<Value>
+): Disclosure<Value>;
+export function useRepreselector<TState, Value, R1>(
+    represelector: (state: TState) => Representative<Value>,
+    operatorFunction: OperatorFunction<Disclosure<Value>,R1>
+): R1 | null;
+export function useRepreselector<TState, Value, R1, R2 = R1>(
+    represelector: (state: TState) => Representative<Value>,
+    operatorFunction: OperatorFunction<Disclosure<Value>,R1>,
+    makeInitial: (first: Disclosure<Value>) => R2
+): R1 | R2;
+export function useRepreselector<TState, Value>(
+    represelector: (state: TState) => Representative<Value>,
+    operatorFunction?: OperatorFunction<Disclosure<Value>,unknown>,
+    makeInitial?: (first: Disclosure<Value>) => unknown
+) {
     const store$ = useStoreSubject<TState>();
 
-    // FIXME: add initializer parameter
-    const [ holder ] = useState<{ d: any }>(() => ({ d: makeInactiveDisclosure() }));
+    const possiblyLastDisclosure = useMemo(() => {
+        let last: Disclosure<Value> | null = null;
+        return (d: Disclosure<Value>) => {
+            const ret = (last !== null) &&
+                ((last.status === INACTIVE && d.status === INACTIVE) ||
+                (last.status === BUSY && d.status === BUSY) ||
+                (last.status === SUCCESS && d.status === SUCCESS && last.value === d.value) ||
+                (last.status === ERROR && d.status === ERROR && last.reason === d.reason)) ?
+                    last 
+                :
+                    d;
+            last = ret;
+            return ret;
+        };  
+    }, []);
 
-    const subscr = useCallback((listener: () => void) => {
-        const x$ = store$.pipe(
+    const { stream$, init } = useMemo(() => {
+        const stream$ = store$.pipe(
             switchMap((state: TState) => {
                 const r = represelector(state);
                 r.value$.subscribe();
                 return r.disclose$;
-            })
+            }),
+            map(possiblyLastDisclosure),
+            operatorFunction ?? ( (x$: Observable<Disclosure<Value>>) => x$ )
         );
-        const y$ = (transformation != null) ? transformation(x$) : x$;
-        const subscription = y$.subscribe((d: any) => {
-            holder.d = d;
-            listener();
-        });
-        return () => subscription.unsubscribe();
-    }, [holder, represelector, store$, transformation]);
 
-    const getSnapshot = useCallback(() => holder.d, [holder]);
+        const init = 
+            makeInitial != null ?
+                () => makeInitial(possiblyLastDisclosure(represelector(store$.getValue()).disclose())) 
+            : operatorFunction == null ?
+                () => possiblyLastDisclosure(represelector(store$.getValue()).disclose())
+            : ( () => null );
 
-    const disclosure = useSyncExternalStore(subscr, getSnapshot, getSnapshot);
+        return { stream$, init };
+    }, [makeInitial, operatorFunction, represelector, store$, possiblyLastDisclosure]);
 
-    return disclosure;
+    const ret = useObservable(stream$, init);
+
+    return ret;
 }
