@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { useStore } from 'react-redux';
 import type { Representative } from 'represelect';
 import { Disclosure, makeInactiveDisclosure } from './represelect_stuff';
-import { BehaviorSubject, from, OperatorFunction, switchMap } from 'rxjs';
+import { BehaviorSubject, from, OperatorFunction, switchMap, Observable } from 'rxjs';
 
 /* eslint-disable  @typescript-eslint/no-explicit-any */
 
@@ -18,6 +18,41 @@ export function useStoreSubject<TState>() {
 
     return storeSubject;
 }
+
+export function useObservable<V>(
+    observable$: Observable<V>
+): V | null;
+export function useObservable<V,W>(
+    observable$: Observable<V>,
+    initializer: () => W
+): V | W;
+export function useObservable<V,R1,R2 = R1>(
+    observable$: Observable<V>,
+    initializer: () => R1,
+    operatorFunction : OperatorFunction<V,R2>
+): R1 | R2;
+export function useObservable<V>(
+    observable$: Observable<V>,
+    initalizer: () => unknown = () => null,
+    operatorFunction?: OperatorFunction<V,unknown>
+) {
+    const [ holder ] = useState<{ r: unknown }>(() => ({ r: initalizer() }));
+
+    const subscribe = useCallback((notify: () => void) => {
+        const subscription =
+            ( operatorFunction != null ? operatorFunction(observable$) : observable$ )
+                .subscribe((r: unknown) => { holder.r = r; notify(); });
+        return () => subscription.unsubscribe();
+    }, [holder, observable$, operatorFunction]);
+
+    const getSnapshot = useCallback(() => holder.r, [holder]);
+
+    const ret = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+
+    return ret;
+}
+
+
 
 export function useRepreselector<TState, Selected>(
     represelector: (state: TState) => Representative<Selected>
