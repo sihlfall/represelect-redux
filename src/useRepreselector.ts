@@ -9,14 +9,14 @@ import { BehaviorSubject, from, OperatorFunction, switchMap } from 'rxjs';
 export function useStoreSubject<TState>() {
     const store = useStore<TState>();
 
-    const [ store$ ] = useState(() => new BehaviorSubject(store.getState()));
+    const [ storeSubject ] = useState(() => new BehaviorSubject(store.getState()));
 
     useEffect(() => {
-        const subscription = from(store).subscribe(state => store$.next(state));
+        const subscription = from(store).subscribe(state => storeSubject.next(state));
         return () => subscription.unsubscribe();
-    }, [store, store$]);
+    }, [store, storeSubject]);
 
-    return store$;
+    return storeSubject;
 }
 
 export function useRepreselector<TState, Selected>(
