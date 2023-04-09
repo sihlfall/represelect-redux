@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useStore } from 'react-redux';
-import { BUSY, ERROR, INACTIVE, Representative, SUCCESS } from 'represelect';
-import { Disclosure } from './represelect_stuff';
+import { Disclosure, Representative } from 'represelect';
 import { BehaviorSubject, from, map, OperatorFunction, switchMap, Observable } from 'rxjs';
 
 /* eslint-disable  @typescript-eslint/no-explicit-any */
@@ -50,34 +49,27 @@ export function useObservable<V>(
 
 export function useRepreselector<TState, Value>(
     represelector: (state: TState) => Representative<Value>
-): Disclosure<Value>;
+): Disclosure.Expected<Value>;
 export function useRepreselector<TState, Value, R1>(
     represelector: (state: TState) => Representative<Value>,
-    operatorFunction: OperatorFunction<Disclosure<Value>,R1>
+    operatorFunction: OperatorFunction<Disclosure.Expected<Value>,R1>
 ): R1 | null;
 export function useRepreselector<TState, Value, R1, R2 = R1>(
     represelector: (state: TState) => Representative<Value>,
-    operatorFunction: OperatorFunction<Disclosure<Value>,R1>,
-    makeInitial: (first: Disclosure<Value>) => R2
+    operatorFunction: OperatorFunction<Disclosure.Expected<Value>,R1>,
+    makeInitial: (first: Disclosure.Expected<Value>) => R2
 ): R1 | R2;
 export function useRepreselector<TState, Value>(
     represelector: (state: TState) => Representative<Value>,
-    operatorFunction?: OperatorFunction<Disclosure<Value>,unknown>,
-    makeInitial?: (first: Disclosure<Value>) => unknown
+    operatorFunction?: OperatorFunction<Disclosure.Expected<Value>,unknown>,
+    makeInitial?: (first: Disclosure.Expected<Value>) => unknown
 ) {
     const store$ = useStoreSubject<TState>();
 
     const possiblyLastDisclosure = useMemo(() => {
-        let last: Disclosure<Value> | null = null;
-        return (d: Disclosure<Value>) => {
-            const ret = (last !== null) &&
-                ((last.status === INACTIVE && d.status === INACTIVE) ||
-                (last.status === BUSY && d.status === BUSY) ||
-                (last.status === SUCCESS && d.status === SUCCESS && last.value === d.value) ||
-                (last.status === ERROR && d.status === ERROR && last.reason === d.reason)) ?
-                    last 
-                :
-                    d;
+        let last: Disclosure.Expected<Value> | null = null;
+        return (d: Disclosure.Expected<Value>) => {
+            const ret = (last !== null) && Disclosure.equality(last, d) ? last : d;
             last = ret;
             return ret;
         };  
@@ -91,7 +83,7 @@ export function useRepreselector<TState, Value>(
                 return r.disclose$;
             }),
             map(possiblyLastDisclosure),
-            operatorFunction ?? ( (x$: Observable<Disclosure<Value>>) => x$ )
+            operatorFunction ?? ( (x$: Observable<Disclosure.Expected<Value>>) => x$ )
         );
 
         const init = 
