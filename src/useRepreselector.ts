@@ -47,28 +47,28 @@ export function useObservable<V>(
 }
 
 
-export function useRepreselector<TState, Value>(
-    represelector: (state: TState) => Representative<Value>
-): Disclosure.Expected<Value>;
-export function useRepreselector<TState, Value, R1>(
-    represelector: (state: TState) => Representative<Value>,
-    operatorFunction: OperatorFunction<Disclosure.Expected<Value>,R1>
+export function useRepreselector<TState, R0>(
+    represelector: (state: TState) => Representative<R0>
+): Disclosure.Unspecified<R0>;
+export function useRepreselector<TState, R0, R1>(
+    represelector: (state: TState) => Representative<R0>,
+    operatorFunction: OperatorFunction<Disclosure.Unspecified<R0>,R1>
 ): R1 | null;
-export function useRepreselector<TState, Value, R1, R2 = R1>(
-    represelector: (state: TState) => Representative<Value>,
-    operatorFunction: OperatorFunction<Disclosure.Expected<Value>,R1>,
-    makeInitial: (first: Disclosure.Expected<Value>) => R2
+export function useRepreselector<TState, R0, R1, R2 = R1>(
+    represelector: (state: TState) => Representative<R0>,
+    operatorFunction: OperatorFunction<Disclosure.Unspecified<R0>,R1>,
+    makeInitial: (first: Disclosure.Unspecified<R0>) => R2
 ): R1 | R2;
-export function useRepreselector<TState, Value>(
-    represelector: (state: TState) => Representative<Value>,
-    operatorFunction?: OperatorFunction<Disclosure.Expected<Value>,unknown>,
-    makeInitial?: (first: Disclosure.Expected<Value>) => unknown
+export function useRepreselector<TState, R0>(
+    represelector: (state: TState) => Representative<R0>,
+    operatorFunction?: OperatorFunction<Disclosure.Unspecified<R0>,unknown>,
+    makeInitial?: (first: Disclosure.Unspecified<R0>) => unknown
 ) {
     const store$ = useStoreSubject<TState>();
 
     const possiblyLastDisclosure = useMemo(() => {
-        let last: Disclosure.Expected<Value> | null = null;
-        return (d: Disclosure.Expected<Value>) => {
+        let last: Disclosure.Unspecified<R0> | null = null;
+        return (d: Disclosure.Unspecified<R0>) => {
             const ret = (last !== null) && Disclosure.equality(last, d) ? last : d;
             last = ret;
             return ret;
@@ -83,7 +83,7 @@ export function useRepreselector<TState, Value>(
                 return r.disclose$;
             }),
             map(possiblyLastDisclosure),
-            operatorFunction ?? ( (x$: Observable<Disclosure.Expected<Value>>) => x$ )
+            operatorFunction ?? ( (x$: Observable<Disclosure.Unspecified<R0>>) => x$ )
         );
 
         const init = 
