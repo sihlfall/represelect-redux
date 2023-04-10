@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useStore } from 'react-redux';
 import { Disclosure, Representative } from 'represelect';
-import { BehaviorSubject, from, map, OperatorFunction, switchMap, Observable } from 'rxjs';
+import { BehaviorSubject, from, map, OperatorFunction, switchMap, Observable as RxJsObservable } from 'rxjs';
+import Symbol_observable from 'symbol-observable';
+import type { Observable as ReduxObservable } from 'redux';
+
+declare global {
+    interface SymbolConstructor {
+      readonly observable: symbol
+    }
+  }
 
 /* eslint-disable  @typescript-eslint/no-explicit-any */
 
@@ -18,33 +26,125 @@ export function useStoreSubject<TState>() {
     return storeSubject;
 }
 
-export function useObservable<V>(
-    observable$: Observable<V>
-): V | null;
-export function useObservable<V,W = V>(
-    observable$: Observable<V>,
-    makeInitial: () => W
-): V | W;
-export function useObservable<V>(
-    observable$: Observable<V>,
-    makeInitial: () => any = () => null
-) {
-    const [ holder ] = useState<{ r: unknown }>(() => ({ r: makeInitial() }));
+export type BehaviorStream<T> = RxJsObservable<T> & { getValue: () => T };
 
-    const subscribe = useCallback((notify: () => void) => {
-        const subscription = observable$.subscribe((r: unknown) => {
-            holder.r = r;
-            notify();
-        });
-        return () => subscription.unsubscribe();
-    }, [holder, observable$]);
-
-    const getSnapshot = useCallback(() => holder.r, [holder]);
+export function useBehaviorStream<V>(behaviorStream: BehaviorStream<V>): V {
+    const { subscribe, getSnapshot } = useMemo(() => ({
+        subscribe: (notify: () => void) => {
+            const subscription = behaviorStream.subscribe(notify);
+            return () => subscription.unsubscribe();
+        },
+        getSnapshot: () => behaviorStream.getValue()
+    }), [behaviorStream]);
 
     const ret = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
     return ret;
 }
+
+interface Observer<T> {
+    next: (value: T) => void;
+    error: (err: any) => void;
+    complete: () => void;
+}
+
+interface Subscribable<T> {
+    subscribe(observer: Partial<Observer<T>>): { unsubscribe: () => void };
+}
+
+export type InteropObservable<T> = object;
+
+export function useObservable<T>(
+    observable: InteropObservable<T>
+): T | null;
+export function useObservable<T,I=T>(
+    observable: InteropObservable<T>,
+    getInitial: () => I
+): T | I;
+export function useObservable<T>(
+    observable: InteropObservable<T>,
+    getInitial: () => unknown = () => null
+) {
+    const [ holder ] = useState<{ t: unknown }>(() => ({ t: getInitial() }));
+
+    const subscribe = useCallback((notify: () => void) => {
+        const obs = (observable as any)[Symbol_observable]() as Subscribable<T>;
+
+        const subscription = obs.subscribe({
+            next: (t: unknown) => {
+                holder.t = t; notify();
+            }
+        });
+        return () => subscription.unsubscribe();
+    }, [holder, observable]);
+
+    const getSnapshot = useCallback(() => holder.t, [holder]);
+
+    const ret = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+
+    return ret;
+}
+
+export function useWithRepreselector<T, R0> (
+    behaviorStream: BehaviorStream<T>,
+    represelector: (state: T) => Representative<R0>
+): R0;
+export function useWithRepreselector<T, R0, R1>(
+    behaviorStream: BehaviorStream<T>,
+    represelector: (state: T) => Representative<R0>,
+    operatorFunction: OperatorFunction<Disclosure.Unspecified<R0>,R1>
+): R1 | null;
+export function useWithRepreselector<T, R0, R1, R2 = R1>(
+    behaviorStream: BehaviorStream<T>,
+    represelector: (state: T) => Representative<R0>,
+    operatorFunction: OperatorFunction<Disclosure.Unspecified<R0>,R1>,
+    makeInitial: (first: Disclosure.Unspecified<R0>) => R2
+): R1 | R2;
+export function useWithRepreselector<T, R0>(
+    behaviorStream: BehaviorStream<T>,
+    represelector: (state: T) => Representative<R0>,
+    operatorFunction?: OperatorFunction<Disclosure.Unspecified<R0>,unknown>,
+    makeInitial?: (first: Disclosure.Unspecified<R0>) => unknown
+) {
+    const possiblyLastDisclosure = useMemo(() => {
+        let last: Disclosure.Unspecified<R0> | null = null;
+        return (d: Disclosure.Unspecified<R0>) => {
+            const ret = (last !== null) && Disclosure.equality(last, d) ? last : d;
+            last = ret;
+            return ret;
+        };  
+    }, []);
+
+    const subj = useMemo(() => {
+        const init = 
+            makeInitial != null ?
+                makeInitial(possiblyLastDisclosure(represelector(behaviorStream.getValue()).disclose())) 
+            : operatorFunction == null ?
+                possiblyLastDisclosure(represelector(behaviorStream.getValue()).disclose())
+            : ( () => null );
+
+        return new BehaviorSubject(init);
+    }, [makeInitial, operatorFunction, represelector, behaviorStream, possiblyLastDisclosure]);
+
+    useEffect(() => {
+        const subscription = behaviorStream.pipe(
+            switchMap((state: T) => {
+                const r = represelector(state);
+                r.value$.subscribe();
+                return r.disclose$;
+            }),
+            map(possiblyLastDisclosure),
+            operatorFunction ?? ( (x$: RxJsObservable<Disclosure.Unspecified<R0>>) => x$ )
+        ).subscribe(subj);
+        return () => subscription.unsubscribe();
+    }, [behaviorStream, subj, operatorFunction, possiblyLastDisclosure, represelector]);
+
+    const ret = useBehaviorStream(subj);
+
+    return ret;
+}
+
+
 
 
 export function useRepreselector<TState, R0>(
@@ -83,7 +183,7 @@ export function useRepreselector<TState, R0>(
                 return r.disclose$;
             }),
             map(possiblyLastDisclosure),
-            operatorFunction ?? ( (x$: Observable<Disclosure.Unspecified<R0>>) => x$ )
+            operatorFunction ?? ( (x$: RxJsObservable<Disclosure.Unspecified<R0>>) => x$ )
         );
 
         const init = 
