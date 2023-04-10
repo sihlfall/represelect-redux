@@ -1,15 +1,10 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useStore } from 'react-redux';
 import { Disclosure, Representative } from 'represelect';
-import { BehaviorSubject, from, map, OperatorFunction, switchMap, Observable as RxJsObservable } from 'rxjs';
-import Symbol_observable from 'symbol-observable';
-import type { Observable as ReduxObservable } from 'redux';
+import { BehaviorSubject, from, map, OperatorFunction, switchMap, Observable as RxJsObservable, ObservableInput } from 'rxjs';
+import { observable as RxJS_Symbol_observable } from 'rxjs'
 
-declare global {
-    interface SymbolConstructor {
-      readonly observable: symbol
-    }
-  }
+const Symbol_observable = (() => (typeof Symbol === 'function' && Symbol.observable) || '@@observable')();
 
 /* eslint-disable  @typescript-eslint/no-explicit-any */
 
@@ -26,16 +21,21 @@ export function useStoreSubject<TState>() {
     return storeSubject;
 }
 
-export type BehaviorStream<T> = RxJsObservable<T> & { getValue: () => T };
+export type BehaviorStream<T> = InteropObservable<T> & { getValue: () => T };
 
 export function useBehaviorStream<V>(behaviorStream: BehaviorStream<V>): V {
-    const { subscribe, getSnapshot } = useMemo(() => ({
-        subscribe: (notify: () => void) => {
-            const subscription = behaviorStream.subscribe(notify);
-            return () => subscription.unsubscribe();
-        },
-        getSnapshot: () => behaviorStream.getValue()
-    }), [behaviorStream]);
+    const { subscribe, getSnapshot } = useMemo(() => {
+        //console.log(Symbol_observable);
+        const obs = (behaviorStream as any)[Symbol.observable]();
+
+        return {
+            subscribe: (notify: () => void) => {
+                const subscription = obs.subscribe(notify);
+                return () => subscription.unsubscribe();
+            },
+            getSnapshot: () => behaviorStream.getValue()
+        };
+    }, [behaviorStream]);
 
     const ret = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
@@ -68,6 +68,10 @@ export function useObservable<T>(
     const [ holder ] = useState<{ t: unknown }>(() => ({ t: getInitial() }));
 
     const subscribe = useCallback((notify: () => void) => {
+        console.log("***************", Symbol_observable);
+        console.log("***************", RxJS_Symbol_observable);
+        console.log("***************", Symbol.observable);
+        console.log((() => (typeof Symbol === 'function' && Symbol.observable) || '@@observable')())
         const obs = (observable as any)[Symbol_observable]() as Subscribable<T>;
 
         const subscription = obs.subscribe({
@@ -127,7 +131,7 @@ export function useWithRepreselector<T, R0>(
     }, [makeInitial, operatorFunction, represelector, behaviorStream, possiblyLastDisclosure]);
 
     useEffect(() => {
-        const subscription = behaviorStream.pipe(
+        const subscription = from(behaviorStream as unknown as ObservableInput<T>).pipe(
             switchMap((state: T) => {
                 const r = represelector(state);
                 r.value$.subscribe();

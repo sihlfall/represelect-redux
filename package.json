@@ -22,7 +22,7 @@
     "build:types": "tsc",
     "build": "rimraf dist lib es && npm run build:types && npm run build:commonjs && npm run build:es && npm run build:umd && npm run build:umd:min",
     "clean": "rimraf lib dist es coverage",
-    "test": "cross-env TS_NODE_COMPILER_OPTIONS=\"{\\\"module\\\": \\\"commonjs\\\", \\\"jsx\\\": \\\"react\\\" }\" ts-mocha"
+    "test": "cross-env TS_NODE_COMPILER_OPTIONS=\"{\\\"module\\\": \\\"commonjs\\\", \\\"jsx\\\": \\\"react\\\" }\" ts-mocha --require test/global.js"
   },
   "keywords": [
     "represelect",
@@ -46,7 +46,8 @@
   "dependencies": {
     "react": "^18.2.0",
     "react-redux": "^8.0.5",
-    "represelect": "^0.1.3"
+    "represelect": "^0.1.3",
+    "symbol-observable": "^4.0.0"
   },
   "devDependencies": {
     "@babel/cli": "^7.21.0",
