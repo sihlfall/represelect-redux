@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useStore } from 'react-redux';
 import { Disclosure, Representative } from 'represelect';
-import { BehaviorSubject, from, map, OperatorFunction, switchMap, Observable as RxJsObservable, ObservableInput } from 'rxjs';
+import { BehaviorSubject, concat, from, map, of, OperatorFunction, switchMap, tap, Observable as RxJsObservable, ObservableInput } from 'rxjs';
 import { observable as RxJS_Symbol_observable } from 'rxjs'
 
 const Symbol_observable = (() => (typeof Symbol === 'function' && Symbol.observable) || '@@observable')();
@@ -21,7 +21,20 @@ export function useStoreSubject<TState>() {
     return storeSubject;
 }
 
-export type BehaviorStream<T> = InteropObservable<T> & { getValue: () => T };
+
+export function switchDisclose<S, T>(
+    represelector: (s: S) => Representative<T>
+): OperatorFunction<S, Disclosure.Unspecified<T>> {
+    return switchMap(
+        (s: S) => {
+            const r = represelector(s);
+            r.value$.subscribe();
+            return r.disclose$;
+        }
+    );
+}
+
+export type BehaviorStream<T> = ObservableInput<T> & { getValue: () => T };
 
 export function useBehaviorStream<V>(behaviorStream: BehaviorStream<V>): V {
     const { subscribe, getSnapshot } = useMemo(() => {
@@ -48,33 +61,21 @@ interface Observer<T> {
     complete: () => void;
 }
 
-interface Subscribable<T> {
-    subscribe(observer: Partial<Observer<T>>): { unsubscribe: () => void };
-}
-
-export type InteropObservable<T> = object;
-
 export function useObservable<T>(
-    observable: InteropObservable<T>
+    observable: ObservableInput<T>
 ): T | null;
 export function useObservable<T,I=T>(
-    observable: InteropObservable<T>,
+    observable: ObservableInput<T>,
     getInitial: () => I
 ): T | I;
 export function useObservable<T>(
-    observable: InteropObservable<T>,
+    observable: ObservableInput<T>,
     getInitial: () => unknown = () => null
 ) {
     const [ holder ] = useState<{ t: unknown }>(() => ({ t: getInitial() }));
 
     const subscribe = useCallback((notify: () => void) => {
-        console.log("***************", Symbol_observable);
-        console.log("***************", RxJS_Symbol_observable);
-        console.log("***************", Symbol.observable);
-        console.log((() => (typeof Symbol === 'function' && Symbol.observable) || '@@observable')())
-        const obs = (observable as any)[Symbol_observable]() as Subscribable<T>;
-
-        const subscription = obs.subscribe({
+        const subscription = from(observable).subscribe({
             next: (t: unknown) => {
                 holder.t = t; notify();
             }
@@ -89,61 +90,80 @@ export function useObservable<T>(
     return ret;
 }
 
+function createStabilizer<T>(equality: (t1: T, t2: T) => boolean) {
+    let last: T | null = null;
+    return (t: T) => {
+        const ret = (last !== null) && equality(last, t) ? last : t;
+        last = ret;
+        return ret;
+    };
+}
+
+const identity = <X> (x: X) => x;
+
 export function useWithRepreselector<T, R0> (
-    behaviorStream: BehaviorStream<T>,
+    stream: ObservableInput<T>,
+    initialize: () => T,
     represelector: (state: T) => Representative<R0>
 ): R0;
 export function useWithRepreselector<T, R0, R1>(
-    behaviorStream: BehaviorStream<T>,
+    stream: ObservableInput<T>,
+    initialize: () => T,
     represelector: (state: T) => Representative<R0>,
-    operatorFunction: OperatorFunction<Disclosure.Unspecified<R0>,R1>
-): R1 | null;
-export function useWithRepreselector<T, R0, R1, R2 = R1>(
-    behaviorStream: BehaviorStream<T>,
-    represelector: (state: T) => Representative<R0>,
-    operatorFunction: OperatorFunction<Disclosure.Unspecified<R0>,R1>,
-    makeInitial: (first: Disclosure.Unspecified<R0>) => R2
-): R1 | R2;
+    transform: {
+        transformValue: (d: Disclosure.Unspecified<R0>) => R1,
+        transformStream?: OperatorFunction<Disclosure.Unspecified<R0>,R1>
+    }
+): R1;
 export function useWithRepreselector<T, R0>(
-    behaviorStream: BehaviorStream<T>,
-    represelector: (state: T) => Representative<R0>,
-    operatorFunction?: OperatorFunction<Disclosure.Unspecified<R0>,unknown>,
-    makeInitial?: (first: Disclosure.Unspecified<R0>) => unknown
+    stream: ObservableInput<T>,
+    initialize: () => T,
+    represelector: (t: T) => Representative<R0>,
+    transform: {
+        transformValue: (d: Disclosure.Unspecified<R0>) => unknown,
+        transformStream?: OperatorFunction<Disclosure.Unspecified<R0>,unknown>
+    } = { transformValue: identity }
 ) {
-    const possiblyLastDisclosure = useMemo(() => {
-        let last: Disclosure.Unspecified<R0> | null = null;
-        return (d: Disclosure.Unspecified<R0>) => {
-            const ret = (last !== null) && Disclosure.equality(last, d) ? last : d;
-            last = ret;
-            return ret;
-        };  
-    }, []);
+    const stabilize = useMemo( () => createStabilizer(Disclosure.equality), [] );
 
-    const subj = useMemo(() => {
-        const init = 
-            makeInitial != null ?
-                makeInitial(possiblyLastDisclosure(represelector(behaviorStream.getValue()).disclose())) 
-            : operatorFunction == null ?
-                possiblyLastDisclosure(represelector(behaviorStream.getValue()).disclose())
-            : ( () => null );
+    const { transformValue } = transform;
 
-        return new BehaviorSubject(init);
-    }, [makeInitial, operatorFunction, represelector, behaviorStream, possiblyLastDisclosure]);
+    const [ holder ]  = useState(() => {
+        const untransformed = stabilize(
+            represelector(initialize()).disclose()
+        );
+        return {
+            untransformed,
+            transformed: transformValue(untransformed)
+        };
+    });
 
-    useEffect(() => {
-        const subscription = from(behaviorStream as unknown as ObservableInput<T>).pipe(
-            switchMap((state: T) => {
-                const r = represelector(state);
-                r.value$.subscribe();
-                return r.disclose$;
-            }),
-            map(possiblyLastDisclosure),
-            operatorFunction ?? ( (x$: RxJsObservable<Disclosure.Unspecified<R0>>) => x$ )
-        ).subscribe(subj);
-        return () => subscription.unsubscribe();
-    }, [behaviorStream, subj, operatorFunction, possiblyLastDisclosure, represelector]);
+    const subscribe = useMemo(() => {
+        const transformStream = transform.transformStream ?? 
+            (transformValue === identity) ? identity : map(transformValue);
 
-    const ret = useBehaviorStream(subj);
+        const out = concat(
+            of(holder.untransformed),
+            from(stream).pipe(
+                switchDisclose(represelector),
+                map(stabilize),
+                tap(d => holder.untransformed = d)
+            )
+        ).pipe(
+            transformStream,
+            tap(t => holder.transformed = t)
+        );
+        
+        return (notify: () => void) => {
+            const subscription = out.subscribe();
+            notify();
+            return () => subscription.unsubscribe();
+        };
+    }, [holder, represelector, transform.transformStream, transformValue, stabilize, stream]);
+
+    const getSnapshot = useCallback( () => holder.transformed, [holder] );
+
+    const ret = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
     return ret;
 }
