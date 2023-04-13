@@ -155,8 +155,7 @@ export function useWithRepreselector<T, R0>(
         );
         
         return (notify: () => void) => {
-            const subscription = out.subscribe();
-            notify();
+            const subscription = out.subscribe(notify);
             return () => subscription.unsubscribe();
         };
     }, [holder, represelector, transform.transformStream, transformValue, stabilize, stream]);
