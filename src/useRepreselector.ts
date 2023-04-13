@@ -117,7 +117,7 @@ export function useWithRepreselector<T, R0, R1>(
 ): R1;
 export function useWithRepreselector<T, R0>(
     stream: ObservableInput<T>,
-    initialize: () => T,
+    initialize: (stream: unknown) => T,
     represelector: (t: T) => Representative<R0>,
     transform: {
         transformValue: (d: Disclosure.Unspecified<R0>) => unknown,
@@ -130,7 +130,7 @@ export function useWithRepreselector<T, R0>(
 
     const [ holder ]  = useState(() => {
         const untransformed = stabilize(
-            represelector(initialize()).disclose()
+            represelector(initialize(stream)).disclose()
         );
         return {
             untransformed,
