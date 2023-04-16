@@ -1,4 +1,4 @@
-import { Subject } from 'rxjs';
+import { Observable, Subject } from 'rxjs';
 
 import { act, renderHook } from '@testing-library/react-hooks';
 import assert from 'assert';
@@ -42,13 +42,13 @@ describe("useWithRepreselector", function () {
 
   it("applies value transformation to initial value", function () {
     const subj = new Subject<number> ();
-    const transformValue = d => (Disclosure.isSuccess(d) ? [d.value] : []);
+    const valueTransformation = d => (Disclosure.isSuccess(d) ? [d.value] : []);
     const { result, unmount } = renderHook(
       () => useWithRepreselector(
         subj,
         () => 5,
         represelectPlusOneHundred,
-        { transformValue }
+        { valueTransformation }
       )
     );
     assert.deepStrictEqual(result.current, [ 105 ]);
@@ -57,13 +57,13 @@ describe("useWithRepreselector", function () {
 
   it("applies value transformation for the first emission on the stream", function () {
     const subj = new Subject<number> ();
-    const transformValue = d => (Disclosure.isSuccess(d) ? [d.value] : []);
+    const valueTransformation = d => (Disclosure.isSuccess(d) ? [d.value] : []);
     const { result, unmount } = renderHook(
       () => useWithRepreselector(
         subj,
         () => 5,
         represelectPlusOneHundred,
-        { transformValue })
+        { valueTransformation })
     );
     act( () => subj.next(10) );
     assert.deepStrictEqual(result.current, [ 110 ]);
@@ -72,13 +72,13 @@ describe("useWithRepreselector", function () {
 
   it("applies value transformation for the second emission on the stream", function () {
     const subj = new Subject<number> ();
-    const transformValue = d => (Disclosure.isSuccess(d) ? [d.value] : []);
+    const valueTransformation = d => (Disclosure.isSuccess(d) ? [d.value] : []);
     const { result, unmount } = renderHook(
       () => useWithRepreselector(
         subj,
         () => 5,
         represelectPlusOneHundred,
-        { transformValue })
+        { valueTransformation })
     );
     act( () => subj.next(10) );
     act( () => subj.next(15) );
@@ -86,23 +86,22 @@ describe("useWithRepreselector", function () {
     unmount();
   });
 
-  /*
-  it("unsubscribes from the store on unmounting", function () {
-    const { store, result, unmount } = renderHookWithProvider(
-      () => useStoreSubject<RootState>(), createStore(reducer)
+  it("unsubscribes from the stream on unmounting", function () {
+    let nSubscriptions = 0;
+    const countSubscriptions = <T> (stream: Observable<T>) => new Observable<T>(subscribe => {
+      ++nSubscriptions;
+      const subscription = stream.subscribe(subscribe);
+      return () => { --nSubscriptions; subscription.unsubscribe(); }
+    });
+    
+    const subj = new Subject<number> ();
+    const { unmount } = renderHook(
+      () => useWithRepreselector(subj.pipe(countSubscriptions), () => 5, represelectPlusOneHundred)
     );
-
-    let observed = [] as number[];
-
-    const subscription = result.current.pipe(
-      map(state => state.n)
-    ).subscribe({ next(n) { observed.push(n); }});
-    act( () => { store.dispatch({ type: INCREMENT_ACTION }) } );
-    assert.deepStrictEqual(observed, [101, 102]);
+    assert.strictEqual(nSubscriptions, 1);
+    act( () => subj.next(10) );
+    act( () => subj.next(15) );
     unmount();
-    act( () => { store.dispatch({ type: INCREMENT_ACTION }) } );  
-    assert.deepStrictEqual(observed, [101, 102]);
-    subscription.unsubscribe();
+    assert.strictEqual(nSubscriptions, 0);
   });
-  */
 });  

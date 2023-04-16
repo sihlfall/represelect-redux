@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
 import type { Disclosure, Representative } from 'represelect';
-import { concat, from, map, of, tap, Observable, ObservableInput, OperatorFunction, switchMap } from 'rxjs';
+import { concat, from, map, of, tap, switchMap } from 'rxjs';
+import type { Observable, ObservableInput, OperatorFunction } from 'rxjs';
 import type { Transformation } from './types';
 
 function switchDisclose<T>(): OperatorFunction<Representative<T>, Disclosure.Unspecified<T>> {
@@ -14,29 +15,32 @@ function switchDisclose<T>(): OperatorFunction<Representative<T>, Disclosure.Uns
 
 export function useWithRepreselector<T, Stream extends ObservableInput<T>, R0> (
   stream: Stream,
-  initialize: (stream: Stream) => T,
+  getInitialValue: (stream: Stream) => T,
   represelector: (state: T) => Representative<R0>
 ): Disclosure.Unspecified<R0>;
 export function useWithRepreselector<T, Stream extends ObservableInput<T>, R0, R1> (
   stream: Stream,
-  initialize: (stream: Stream) => T,
+  getInitialValue: (stream: Stream) => T,
   represelector: (state: T) => Representative<R0>,
   transform: Transformation<Disclosure.Unspecified<R0>,R1>
 ): R1;
 export function useWithRepreselector<T, Stream extends ObservableInput<T>, R0> (
   stream: Stream,
-  initialize: (stream: Stream) => T,
+  getInitialValue: (stream: Stream) => T,
   represelector: (t: T) => Representative<R0>,
   transform?: Transformation<Disclosure.Unspecified<R0>,unknown> 
 ) {
-  const { transformValue = undefined, transformStream = undefined } = transform ?? {};
+  const {
+    valueTransformation = undefined,
+    streamTransformation = undefined
+  } = transform ?? {};
 
   const [ holder ]  = useState(() => {
-      const representative = represelector(initialize(stream));
-      const untransformed = representative.disclose();
+      const representative = represelector(getInitialValue(stream));
+      const disclosure = representative.disclose();
       return {
           representative,
-          transformed: transformValue ? transformValue(untransformed) : untransformed
+          transformed: valueTransformation ? valueTransformation(disclosure) : disclosure
       };
   });
 
@@ -48,8 +52,8 @@ export function useWithRepreselector<T, Stream extends ObservableInput<T>, R0> (
           tap(r => holder.representative = r),
           switchDisclose()
       );
-      if (transformValue) out = out.pipe(map(transformValue));
-      if (transformStream) out = out.pipe(transformStream);
+      if (valueTransformation) out = out.pipe(map(valueTransformation));
+      if (streamTransformation) out = streamTransformation(out);
       out = out.pipe(
           tap(t => holder.transformed = t)
       );
@@ -58,7 +62,7 @@ export function useWithRepreselector<T, Stream extends ObservableInput<T>, R0> (
           const subscription = (out as Observable<unknown>).subscribe(notify);
           return () => subscription.unsubscribe();
       };
-  }, [holder, represelector, transformStream, transformValue, stream]);
+  }, [holder, represelector, streamTransformation, valueTransformation, stream]);
 
   const getSnapshot = useCallback( () => holder.transformed, [holder] );
 

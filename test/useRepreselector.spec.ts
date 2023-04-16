@@ -48,18 +48,18 @@ describe("useRepreselector", function () {
   });
 
   it("applies value transformation to initial value", function () {
-    const transformValue = d => (Disclosure.isSuccess(d) ? [d.value] : []);
+    const valueTransformation = d => (Disclosure.isSuccess(d) ? [d.value] : []);
     const { result, unmount } = renderHookWithProvider(
-      () => useAppRepreselector(represelectPlusOneHundred, { transformValue }), createStore(reducer)
+      () => useAppRepreselector(represelectPlusOneHundred, { valueTransformation }), createStore(reducer)
     );
     assert.deepStrictEqual(result.current, [ 201 ]);
     unmount();
   });
 
   it("applies value transformation for the first emission on the stream", function () {
-    const transformValue = d => (Disclosure.isSuccess(d) ? [d.value] : []);
+    const valueTransformation = d => (Disclosure.isSuccess(d) ? [d.value] : []);
     const { store, result, unmount } = renderHookWithProvider(
-      () => useAppRepreselector(represelectPlusOneHundred, { transformValue }), createStore(reducer)
+      () => useAppRepreselector(represelectPlusOneHundred, { valueTransformation }), createStore(reducer)
     );
     act( () => void store.dispatch({ type: INCREMENT_ACTION }) );
     assert.deepStrictEqual(result.current, [ 202 ]);
@@ -67,9 +67,9 @@ describe("useRepreselector", function () {
   });
 
   it("applies value transformation for the second emission on the stream", function () {
-    const transformValue = d => (Disclosure.isSuccess(d) ? [d.value] : []);
+    const valueTransformation = d => (Disclosure.isSuccess(d) ? [d.value] : []);
     const { store, result, unmount } = renderHookWithProvider(
-      () => useAppRepreselector(represelectPlusOneHundred, { transformValue }), createStore(reducer)
+      () => useAppRepreselector(represelectPlusOneHundred, { valueTransformation }), createStore(reducer)
     );
     act( () => void store.dispatch({ type: INCREMENT_ACTION }) );
     act( () => void store.dispatch({ type: INCREMENT_ACTION }) );
