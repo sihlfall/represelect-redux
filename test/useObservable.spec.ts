@@ -2,7 +2,7 @@ import { BehaviorSubject } from 'rxjs';
 import { act, renderHook } from '@testing-library/react-hooks';
 import assert from 'assert';
 
-import { useObservable } from '../src/useRepreselector';
+import { useObservable } from '../src/useObservable';
 
 describe("useObservable", function () {
   it("delivers the initial values, as well as the emitted values", function () {

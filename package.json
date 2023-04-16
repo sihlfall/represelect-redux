@@ -22,7 +22,7 @@
     "build:types": "tsc",
     "build": "rimraf dist lib es && npm run build:types && npm run build:commonjs && npm run build:es && npm run build:umd && npm run build:umd:min",
     "clean": "rimraf lib dist es coverage",
-    "test": "cross-env TS_NODE_COMPILER_OPTIONS=\"{\\\"module\\\": \\\"commonjs\\\", \\\"jsx\\\": \\\"react\\\" }\" ts-mocha --require test/global.js"
+    "test": "cross-env TS_NODE_COMPILER_OPTIONS=\"{\\\"module\\\": \\\"commonjs\\\", \\\"jsx\\\": \\\"react\\\" }\" ts-mocha"
   },
   "keywords": [
     "represelect",

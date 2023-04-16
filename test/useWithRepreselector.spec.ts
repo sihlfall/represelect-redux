@@ -3,7 +3,7 @@ import { Subject } from 'rxjs';
 import { act, renderHook } from '@testing-library/react-hooks';
 import assert from 'assert';
 
-import { useWithRepreselector } from '../src/useRepreselector';
+import { useWithRepreselector } from '../src/useWithRepreselector';
 import { Disclosure, createRepreselector } from 'represelect';
 import { assertSuccess } from './assertDisclosure';
 
@@ -84,6 +84,25 @@ describe("useWithRepreselector", function () {
     act( () => subj.next(15) );
     assert.deepStrictEqual(result.current, [ 115 ]);
     unmount();
-  })
+  });
 
-});
+  /*
+  it("unsubscribes from the store on unmounting", function () {
+    const { store, result, unmount } = renderHookWithProvider(
+      () => useStoreSubject<RootState>(), createStore(reducer)
+    );
+
+    let observed = [] as number[];
+
+    const subscription = result.current.pipe(
+      map(state => state.n)
+    ).subscribe({ next(n) { observed.push(n); }});
+    act( () => { store.dispatch({ type: INCREMENT_ACTION }) } );
+    assert.deepStrictEqual(observed, [101, 102]);
+    unmount();
+    act( () => { store.dispatch({ type: INCREMENT_ACTION }) } );  
+    assert.deepStrictEqual(observed, [101, 102]);
+    subscription.unsubscribe();
+  });
+  */
+});  
