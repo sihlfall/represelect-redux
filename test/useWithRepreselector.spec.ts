@@ -5,7 +5,7 @@ import assert from 'assert';
 
 import { useWithRepreselector } from '../src/useWithRepreselector';
 import { Disclosure, createRepreselector } from 'represelect';
-import { assertSuccess } from './assertDisclosure';
+import * as RepreselectAssert from 'represelect-assert';
 
 const represelectPlusOneHundred = createRepreselector( (x: number) => x, (x: number) => x + 100);
 
@@ -15,7 +15,7 @@ describe("useWithRepreselector", function () {
     const { result, unmount } = renderHook(
       () => useWithRepreselector(subj, () => 5, represelectPlusOneHundred)
     );
-    assertSuccess(result.current, 105);
+    RepreselectAssert.Disclosure.successWith(result.current, 105);
     unmount();
   });
 
@@ -25,7 +25,7 @@ describe("useWithRepreselector", function () {
       () => useWithRepreselector(subj, () => 5, represelectPlusOneHundred)
     );
     act( () => subj.next(10) );
-    assertSuccess(result.current, 110);
+    RepreselectAssert.Disclosure.successWith(result.current, 110);
     unmount();
   });
 
@@ -36,7 +36,7 @@ describe("useWithRepreselector", function () {
     );
     act( () => subj.next(10) );
     act( () => subj.next(15) );
-    assertSuccess(result.current, 115);
+    RepreselectAssert.Disclosure.successWith(result.current, 115);
     unmount();
   });
 

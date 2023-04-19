@@ -5,10 +5,10 @@ import assert from 'assert';
 
 import { TypedUseRepreselectorHook, useRepreselector } from '../src/useRepreselector';
 import { Disclosure, createRepreselector } from 'represelect';
+import * as RepreselectAssert from 'represelect-assert';
 
 
 import { INCREMENT_ACTION, RootState, reducer } from './testCoreRedux';
-import { assertSuccess } from './assertDisclosure';
 import { renderHookWithProvider } from './reduxUtil';
 
 const represelectPlusOneHundred = createRepreselector(
@@ -23,7 +23,7 @@ describe("useRepreselector", function () {
       () => useAppRepreselector(represelectPlusOneHundred), createStore(reducer)
     );
 
-    assertSuccess(result.current, 201);
+    RepreselectAssert.Disclosure.successWith(result.current, 201);
     unmount();
   });
 
@@ -33,7 +33,7 @@ describe("useRepreselector", function () {
       () => useAppRepreselector(represelectPlusOneHundred), createStore(reducer)
     );
     act( () => void store.dispatch({ type: INCREMENT_ACTION }) );
-    assertSuccess(result.current, 202);
+    RepreselectAssert.Disclosure.successWith(result.current, 202);
     unmount();
   });
 
@@ -43,7 +43,7 @@ describe("useRepreselector", function () {
     );
     act( () => void store.dispatch({ type: INCREMENT_ACTION }) );
     act( () => void store.dispatch({ type: INCREMENT_ACTION }) );
-    assertSuccess(result.current, 203);
+    RepreselectAssert.Disclosure.successWith(result.current, 203);
     unmount();
   });
 
