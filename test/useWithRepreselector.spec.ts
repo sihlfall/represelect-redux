@@ -5,7 +5,7 @@ import assert from 'assert';
 
 import { useWithRepreselector } from '../src/useWithRepreselector';
 import { Disclosure, createRepreselector } from 'represelect';
-import * as RepreselectAssert from 'represelect-assert';
+import * as RepreselectAssert from '@sihlfall/represelect-assert';
 
 const represelectPlusOneHundred = createRepreselector( (x: number) => x, (x: number) => x + 100);
 

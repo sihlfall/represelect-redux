@@ -5,7 +5,7 @@ import assert from 'assert';
 
 import { TypedUseRepreselectorHook, useRepreselector } from '../src/useRepreselector';
 import { Disclosure, createRepreselector } from 'represelect';
-import * as RepreselectAssert from 'represelect-assert';
+import * as RepreselectAssert from '@sihlfall/represelect-assert';
 
 
 import { INCREMENT_ACTION, RootState, reducer } from './testCoreRedux';
